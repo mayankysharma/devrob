@@ -1,0 +1,233 @@
+planning_plugin: ompl_interface/OMPLPlanner
+request_adapters: >-
+    default_planner_request_adapters/AddTimeOptimalParameterization
+    default_planner_request_adapters/FixWorkspaceBounds
+    default_planner_request_adapters/FixStartStateBounds
+    default_planner_request_adapters/FixStartStateCollision
+    default_planner_request_adapters/FixStartStatePathConstraints
+response_adapters: >-
+    default_planner_response_adapters/AddTimeOptimalParameterization
+
+planner_configs:
+  SBLkConfigDefault:
+    type: geometric::SBL
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+  ESTkConfigDefault:
+    type: geometric::EST
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+  LBKPIECEkConfigDefault:
+    type: geometric::LBKPIECE
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    border_fraction: 0.9  # Fraction of time focused on boarder default: 0.9
+    min_valid_path_fraction: 0.2  # Accept partially valid moves above fraction. default: 0.2
+  BKPIECEkConfigDefault:
+    type: geometric::BKPIECE
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    border_fraction: 0.9  # Fraction of time focused on boarder default: 0.9
+    failed_expansion_score_factor: 0.5  # When extending motion fails, scale score by factor. default: 0.5
+    min_valid_path_fraction: 0.2  # Accept partially valid moves above fraction. default: 0.2
+  KPIECEkConfigDefault:
+    type: geometric::KPIECE
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+    border_fraction: 0.9  # Fraction of time focused on boarder default: 0.9
+    failed_expansion_score_factor: 0.5  # When extending motion fails, scale score by factor. default: 0.5
+    min_valid_path_fraction: 0.2  # Accept partially valid moves above fraction. default: 0.2
+  RRTkConfigDefault:
+    type: geometric::RRT
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+  RRTConnectkConfigDefault:
+    type: geometric::RRTConnect
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+  RRTstarkConfigDefault:
+    type: geometric::RRTstar
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+    delay_collision_checking: 1  # Stop collision checking as soon as C-free parent found. default 1
+  TRRTkConfigDefault:
+    type: geometric::TRRT
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+    max_states_failed: 10  # when to start increasing temp. default: 10
+    temp_change_factor: 0.1  # how much to increase or decrease temp. default: 0.1
+    min_temperature: 0.1  # lower limit of temp change. default: 0.1
+    init_temperature: 0.15  # initial temperature. default: 0.15
+    fwd_weight: 1.0  # how much to favor forward expansion. default: 1.0
+    no_goals: 1  # if >0, do not use goal biasing. default: 1
+  PRMkConfigDefault:
+    type: geometric::PRM
+  PRMstarkConfigDefault:
+    type: geometric::PRMstar
+  FMTkConfigDefault:
+    type: geometric::FMT
+    num_samples: 1000  # number of states that the planner should sample. default: 1000
+    radius_multiplier: 1.1  # multiplier used for the nearest neighbors search radius. default: 1.1
+    nearest_k: 1  # use Knearest strategy. default: 1
+  BFMTkConfigDefault:
+    type: geometric::BFMT
+    num_samples: 1000  # number of states that the planner should sample. default: 1000
+    radius_multiplier: 1.1  # multiplier used for the nearest neighbors search radius. default: 1.1
+    balanced: 0  # exploration strategy: balanced true expands one tree every iteration. False will select the tree with lowest maximum cost to go. default: 0
+    optimality: 1  # termination strategy: optimality true finishes when the best possible path is found. Otherwise, the algorithm will finish when the first feasible path is found. default: 1
+    heuristics: 0  # activates cost to go heuristics. default: 0
+    nearest_k: 1  # use Knearest strategy. default: 1
+  PDSTkConfigDefault:
+    type: geometric::PDST
+  STRIDEkConfigDefault:
+    type: geometric::STRIDE
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+    use_projected_distance: 0  # whether nearest neighbors are computed based on distances in a projection of the state rather distances in the state space itself. default: 0
+    degree: 16  # desired degree of a node in the Geometric Near-neightbor Access Tree (GNAT). default: 16
+    max_pts_per_node: 16  # max points per node in the GNAT. default: 16
+    estimated_dimension: 0.0  # estimated dimension of the free space. default: 0.0
+    min_valid_path_fraction: 0.2  # Accept partially valid moves above fraction. default: 0.2
+  BiTRRTkConfigDefault:
+    type: geometric::BiTRRT
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    temp_change_factor: 0.1  # how much to increase or decrease temp. default: 0.1
+    init_temperature: 0.15  # initial temperature. default: 0.15
+    fwd_weight: 1.0  # how much to favor forward expansion. default: 1.0
+    no_goals: 1  # if >0, do not use goal biasing. default: 1
+  LBTRRTkConfigDefault:
+    type: geometric::LBTRRT
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+  BiESTkConfigDefault:
+    type: geometric::BiEST
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+  ProjESTkConfigDefault:
+    type: geometric::ProjEST
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+  RRTXkConfigDefault:
+    type: geometric::RRTXstatic
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+  InformedRRTstarkConfigDefault:
+    type: geometric::InformedRRTstar
+    range: 0.0  # Max motion added to tree. ==> maxDistance_ default: 0.0, if 0.0, set on setup()
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+    delay_collision_checking: 1  # Stop collision checking as soon as C-free parent found. default 1
+  BITstarkConfigDefault:
+    type: geometric::BITstar
+    goal_bias: 0.05  # When close to goal select goal, with this probability. default: 0.05
+    use_k_nearest: 0  # if 0, use r-disc, if 1, use k-nearest. default: 0
+    rewire_factor: 1.1  # how much to increase the rewiring radius. default: 1.1
+    samples_per_batch: 100  # how many new samples per batch. default: 100
+    use_strict_queue_ordering: 1  # if 1, always process the best edge, otherwise, pop the first edge. default: 1
+    delay_rewiring_to_first_solution: 1  # if 1, delay rewiring until first solution. default: 1
+ur5_manipulator:
+  default_planner_config: RRTConnectkConfigDefault
+  planner_configs:
+    SBLkConfigDefault:
+      type: geometric::SBL
+      range: 0.0
+    ESTkConfigDefault:
+      type: geometric::EST
+      range: 0.0
+      goal_bias: 0.05
+    LBKPIECEkConfigDefault:
+      type: geometric::LBKPIECE
+      range: 0.0
+      border_fraction: 0.9
+      min_valid_path_fraction: 0.2
+    BKPIECEkConfigDefault:
+      type: geometric::BKPIECE
+      range: 0.0
+      border_fraction: 0.9
+      failed_expansion_score_factor: 0.5
+      min_valid_path_fraction: 0.2
+    KPIECEkConfigDefault:
+      type: geometric::KPIECE
+      range: 0.0
+      goal_bias: 0.05
+      border_fraction: 0.9
+      failed_expansion_score_factor: 0.5
+      min_valid_path_fraction: 0.2
+    RRTkConfigDefault:
+      type: geometric::RRT
+      range: 0.0
+      goal_bias: 0.05
+    RRTConnectkConfigDefault:
+      type: geometric::RRTConnect
+      range: 0.0
+    RRTstarkConfigDefault:
+      type: geometric::RRTstar
+      range: 0.0
+      goal_bias: 0.05
+      delay_collision_checking: 1
+    TRRTkConfigDefault:
+      type: geometric::TRRT
+      range: 0.0
+      goal_bias: 0.05
+      max_states_failed: 10
+      temp_change_factor: 0.1
+      min_temperature: 0.1
+      init_temperature: 0.15
+      fwd_weight: 1.0
+      no_goals: 1
+    PRMkConfigDefault:
+      type: geometric::PRM
+    PRMstarkConfigDefault:
+      type: geometric::PRMstar
+    FMTkConfigDefault:
+      type: geometric::FMT
+      num_samples: 1000
+      radius_multiplier: 1.1
+      nearest_k: 1
+    BFMTkConfigDefault:
+      type: geometric::BFMT
+      num_samples: 1000
+      radius_multiplier: 1.1
+      balanced: 0
+      optimality: 1
+      heuristics: 0
+      nearest_k: 1
+    PDSTkConfigDefault:
+      type: geometric::PDST
+    STRIDEkConfigDefault:
+      type: geometric::STRIDE
+      range: 0.0
+      goal_bias: 0.05
+      use_projected_distance: 0
+      degree: 16
+      max_pts_per_node: 16
+      estimated_dimension: 0.0
+      min_valid_path_fraction: 0.2
+    BiTRRTkConfigDefault:
+      type: geometric::BiTRRT
+      range: 0.0
+      temp_change_factor: 0.1
+      init_temperature: 0.15
+      fwd_weight: 1.0
+      no_goals: 1
+    LBTRRTkConfigDefault:
+      type: geometric::LBTRRT
+      range: 0.0
+      goal_bias: 0.05
+    BiESTkConfigDefault:
+      type: geometric::BiEST
+      range: 0.0
+    ProjESTkConfigDefault:
+      type: geometric::ProjEST
+      range: 0.0
+      goal_bias: 0.05
+    RRTXkConfigDefault:
+      type: geometric::RRTXstatic
+      range: 0.0
+    InformedRRTstarkConfigDefault:
+      type: geometric::InformedRRTstar
+      range: 0.0
+      goal_bias: 0.05
+      delay_collision_checking: 1
+    BITstarkConfigDefault:
+      type: geometric::BITstar
+      goal_bias: 0.05
+      use_k_nearest: 0
+      rewire_factor: 1.1
+      samples_per_batch: 100
+      use_strict_queue_ordering: 1
+      delay_rewiring_to_first_solution: 1
+
