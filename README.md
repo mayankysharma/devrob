@@ -68,10 +68,11 @@ docker build -t pick_place:humble ./docker
 If you want to manually run the container and run commands interactively:
 
 ```bash
-docker run --rm -it --env="DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" --volume="$(pwd):/workspace/src/pick_place" --network host pick_place:humble /bin/bash
+docker run --rm -it --env="DISPLAY" --env="XAUTHORITY=$XAUTHORITY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" --volume="$XAUTHORITY:$XAUTHORITY" --device /dev/dri --group-add video --volume="$(pwd):/workspace/src" --network host pick_place:humble /bin/bash -lc "bash"
+
 # then inside container
 source /opt/ros/humble/setup.bash
-cd /workspace/src/pick_place
+
 colcon build --symlink-install
 source install/setup.bash
 ros2 launch pick_place pick_place_ignition.launch.py
