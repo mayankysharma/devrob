@@ -119,9 +119,11 @@ def generate_launch_description():
     clock_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
-        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock]'],
         output='screen'
     )
+
+    # RViz2 is optional; removed from default launch to keep runtime minimal
     
     # Bridge for Gazebo services (SpawnEntity and DeleteEntity)
     # These services allow creating/deleting entities (like joints) in the simulation
@@ -145,7 +147,13 @@ def generate_launch_description():
             {'use_sim_time': use_sim_time},
             # Pick and place positions (can be overridden via --ros-args -p pick_position:="[x, y, z]")
             {'pick_position': [0.6, 0.0, 0.025]},  # Default: matches cube position in world (0.6, 0.0, 0.025)
-            {'place_position': [-0.5, 0.0, 0.025]}  # Default: matches place marker in world (-0.5, 0.0, 0.025)
+            {'place_position': [-0.5, 0.0, 0.025]},  # Default: matches place marker in world (-0.5, 0.0, 0.025)
+            # Node-level overrides for MoveIt parameters
+            {'end_effector_link': 'tool0'},
+            {'planning_time': 10.0},
+            {'planning_attempts': 10},
+            {'velocity_scaling': 0.5},
+            {'acceleration_scaling': 0.5}
         ]
     )
 

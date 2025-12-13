@@ -54,11 +54,34 @@ ros2 launch pick_place pick_place_ignition.launch.py
 
 The launch file starts Gazebo Ignition, spawns the UR5 robot, initializes MoveIt, and automatically executes the pick and place sequence.
 
+## Docker and helper scripts
+Repository-level Dockerfile and helper scripts are under the `docker/` and `scripts/` directories at the repository root.
+
+Build and run the containerized environment:
+
+```bash
+# From repository root
+docker build -t pick_place:humble ./docker
+./scripts/run_in_docker.sh
+```
+
+If you want to manually run the container and run commands interactively:
+
+```bash
+docker run --rm -it --env="DISPLAY" --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" --volume="$(pwd):/workspace/src/pick_place" --network host pick_place:humble /bin/bash
+# then inside container
+source /opt/ros/humble/setup.bash
+cd /workspace/src/pick_place
+colcon build --symlink-install
+source install/setup.bash
+ros2 launch pick_place pick_place_ignition.launch.py
+```
+
 ### Launch Arguments
 
 - `pick_position` (default: `[0.6, 0.0, 0.025]`): Target pick position [x, y, z] in meters
 - `place_position` (default: `[-0.5, 0.0, 0.025]`): Target place position [x, y, z] in meters
-- `x`, `y`, `z` (default: `0.0`): Robot spawn position
+- `x`, `y`, `z` (default: `0.0`, `0.0`, `0.0` respectively): Robot spawn position. If you encounter planning collisions at spawn, pass a non-zero `z` (e.g. `0.2`) to raise the robot above the ground.
 - `use_sim_time` (default: `true`): Enable simulation time
 
 Example with custom positions:
@@ -119,6 +142,4 @@ pick_place/
 
 
 
-## License
 
-MIT

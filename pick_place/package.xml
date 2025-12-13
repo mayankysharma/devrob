@@ -20,6 +20,7 @@
   <depend>moveit_msgs</depend>
   <depend>sensor_msgs</depend>
   <depend>tf2_geometry_msgs</depend>
+  <depend>shape_msgs</depend>
   <depend>xacro</depend>
   <depend>control_msgs</depend>
   
@@ -41,7 +42,6 @@
   <exec_depend>moveit_planners</exec_depend>
   <exec_depend>moveit_configs_utils</exec_depend>
 
-  <exec_depend>rviz2</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
