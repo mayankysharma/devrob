@@ -8,8 +8,6 @@
 #include <ros_gz_interfaces/srv/spawn_entity.hpp>
 #include <ros_gz_interfaces/srv/delete_entity.hpp>
 #include <ros_gz_interfaces/msg/entity.hpp>
-#include <control_msgs/action/follow_joint_trajectory.hpp>
-#include <rclcpp_action/rclcpp_action.hpp>
 #include <chrono>
 #include <thread>
 #include <sstream>
@@ -108,25 +106,18 @@ private:
         RCLCPP_INFO(this->get_logger(), "Planning successful on attempt %d!", attempt);
         RCLCPP_INFO(this->get_logger(), "Plan has %zu waypoints", plan.trajectory_.joint_trajectory.points.size());
         
-        // Try to execute via MoveIt first
+        // Execute trajectory via MoveIt
         RCLCPP_INFO(this->get_logger(), "Attempting to execute trajectory via MoveIt...");
         moveit::core::MoveItErrorCode execution_result = move_group_->execute(plan);
         
         if (execution_result == moveit::core::MoveItErrorCode::SUCCESS) {
-          RCLCPP_INFO(this->get_logger(), "Execution successful via MoveIt!");
+          RCLCPP_INFO(this->get_logger(), "Execution successful!");
           success = true;
           break;
         } else {
-          RCLCPP_WARN(this->get_logger(), "MoveIt execution failed, trying direct controller action...");
-          // Workaround: Send trajectory directly to controller action topic
-          if (executeTrajectoryDirectly(plan.trajectory_.joint_trajectory)) {
-            RCLCPP_INFO(this->get_logger(), "Execution successful via direct controller action!");
-            success = true;
-            break;
-          } else {
-            RCLCPP_WARN(this->get_logger(), "Direct execution also failed, but planning works!");
-            success = true; // Planning succeeded, which is what we're testing
-            break;
+          RCLCPP_WARN(this->get_logger(), "Execution failed on attempt %d", attempt);
+          if (attempt < max_retries) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
           }
         }
       } else {
@@ -287,48 +278,6 @@ private:
       RCLCPP_ERROR(this->get_logger(), "Failed to detach object");
       return false;
     }
-  }
-  
-  // Direct trajectory execution workaround
-  bool executeTrajectoryDirectly(const trajectory_msgs::msg::JointTrajectory& trajectory)
-  {
-    using FollowJointTrajectory = control_msgs::action::FollowJointTrajectory;
-    auto action_client = rclcpp_action::create_client<FollowJointTrajectory>(
-        this, "/joint_trajectory_controller/follow_joint_trajectory");
-    
-    if (!action_client->wait_for_action_server(std::chrono::seconds(5))) {
-      RCLCPP_ERROR(this->get_logger(), "Action server not available");
-      return false;
-    }
-    
-    auto goal_msg = FollowJointTrajectory::Goal();
-    goal_msg.trajectory = trajectory;
-    
-    RCLCPP_INFO(this->get_logger(), "Sending trajectory directly to controller...");
-    auto send_goal_options = rclcpp_action::Client<FollowJointTrajectory>::SendGoalOptions();
-    
-    // Feedback callback (optional)
-    send_goal_options.feedback_callback = [this](const auto&, const auto& feedback) {
-      // Can log feedback if needed
-    };
-    
-    // Result callback - will be called when execution completes
-    send_goal_options.result_callback = [this](const auto& result) {
-      if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
-        RCLCPP_INFO(this->get_logger(), "Trajectory execution completed successfully!");
-      } else {
-        RCLCPP_WARN(this->get_logger(), "Trajectory execution failed with code: %d", static_cast<int>(result.code));
-      }
-    };
-    
-    // Send goal asynchronously - the callbacks will handle the result
-    // Since the node is already being spun, we don't need to spin here
-    auto future = action_client->async_send_goal(goal_msg, send_goal_options);
-    
-    // Use a timer to check if goal was accepted (non-blocking)
-    // For now, just return true - the goal was sent and callbacks will handle the result
-    RCLCPP_INFO(this->get_logger(), "Goal sent to controller. Execution will proceed asynchronously.");
-    return true;
   }
   
   std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
