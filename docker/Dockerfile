@@ -36,6 +36,12 @@ RUN apt-get update && apt-get install -y \
     ros-humble-joint-state-publisher \
     ros-humble-control-msgs \
     ros-humble-shape-msgs \
+    python3-numpy \
+    libopenblas-dev \
+    ros-humble-ros2cli \
+    ros-humble-ros2param \
+    ros-humble-gz-ros2-control \
+    ros-humble-gazebo-ros2-control \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a workspace and copy source

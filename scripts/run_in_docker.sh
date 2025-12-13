@@ -11,7 +11,11 @@ xhost +local:root
 # Run the container and execute build+launch inside it. The container will fail if no host X11 is available.
 docker run --rm -it \
   --env="DISPLAY" \
+  --env="XAUTHORITY=$XAUTHORITY" \
   --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
+  --volume="$XAUTHORITY:$XAUTHORITY" \
+  --device /dev/dri \
+  --group-add video \
   --volume="$(pwd):/workspace/src/pick_place" \
   --network host \
   ${IMAGE_NAME} /bin/bash -lc "source /opt/ros/humble/setup.bash && cd /workspace/src/pick_place && colcon build --symlink-install && source install/setup.bash && ros2 launch pick_place pick_place_ignition.launch.py"
