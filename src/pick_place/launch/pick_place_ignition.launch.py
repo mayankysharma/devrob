@@ -19,7 +19,13 @@ def generate_launch_description():
     arg_use_sim_time = DeclareLaunchArgument('use_sim_time', default_value='true')
     arg_x = DeclareLaunchArgument('x', default_value='0.0')
     arg_y = DeclareLaunchArgument('y', default_value='0.0')
-    arg_z = DeclareLaunchArgument('z', default_value='0.0')  # On the ground 
+    arg_z = DeclareLaunchArgument('z', default_value='0.0')  # On the ground
+    
+    # Pick and place position arguments
+    arg_pick_pos = DeclareLaunchArgument('pick_position', default_value='[0.6, 0.0, 0.025]',
+                                         description='Pick position [x, y, z]')
+    arg_place_pos = DeclareLaunchArgument('place_position', default_value='[-0.5, 0.0, 0.025]',
+                                          description='Place position [x, y, z]') 
 
     # --- 3. Construct Paths ---
     
@@ -29,7 +35,6 @@ def generate_launch_description():
     srdf_file_path = os.path.join(pick_place_pkg_path, "config", "ur5_manipulator.srdf")
     world_file_path = os.path.join(pick_place_pkg_path, "worlds", "pick_place_world.sdf")
     controller_config_file = os.path.join(pick_place_pkg_path, "config", "ur5_controllers.yaml")
-    rviz_config_file = os.path.join(pick_place_pkg_path, "config", "moveit_rviz.rviz")
 
     # --- 4. MoveIt Configuration ---
     moveit_controllers_file = os.path.join(pick_place_pkg_path, "config", "moveit_controllers.yaml")
@@ -98,18 +103,6 @@ def generate_launch_description():
         ],
     )
 
-    rviz_node = Node(
-        package="rviz2",
-        executable="rviz2",
-        name="rviz2",
-        output="screen",
-        arguments=["-d", rviz_config_file],
-        parameters=[
-            moveit_config.to_dict(),
-            {'use_sim_time': use_sim_time}
-        ]
-    )
-
     joint_state_broadcaster = Node(
         package="controller_manager",
         executable="spawner",
@@ -122,10 +115,24 @@ def generate_launch_description():
         arguments=["joint_trajectory_controller", "-c", "/controller_manager"],
     )
 
-    bridge = Node(
+    # Bridge for clock topic
+    clock_bridge = Node(
         package='ros_gz_bridge',
         executable='parameter_bridge',
         arguments=['/clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock'],
+        output='screen'
+    )
+    
+    # Bridge for Gazebo services (SpawnEntity and DeleteEntity)
+    # These services allow creating/deleting entities (like joints) in the simulation
+    # Format: service@ROS2_srv_type@Ign_req_type@Ign_rep_type
+    service_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        arguments=[
+            '/world/default/create@ros_gz_interfaces/srv/SpawnEntity@gz.msgs.EntityFactory@gz.msgs.Boolean',
+            '/world/default/remove@ros_gz_interfaces/srv/DeleteEntity@gz.msgs.Entity@gz.msgs.Boolean',
+        ],
         output='screen'
     )
     
@@ -135,7 +142,10 @@ def generate_launch_description():
         output='screen',
         parameters=[
             moveit_config.to_dict(),
-            {'use_sim_time': use_sim_time}
+            {'use_sim_time': use_sim_time},
+            # Pick and place positions (can be overridden via --ros-args -p pick_position:="[x, y, z]")
+            {'pick_position': [0.6, 0.0, 0.025]},  # Default: matches cube position in world (0.6, 0.0, 0.025)
+            {'place_position': [-0.5, 0.0, 0.025]}  # Default: matches place marker in world (-0.5, 0.0, 0.025)
         ]
     )
 
@@ -159,12 +169,12 @@ def generate_launch_description():
     delay_moveit = RegisterEventHandler(
         OnProcessStart(
             target_action=joint_trajectory_controller,
-            on_start=[move_group_node, rviz_node, TimerAction(period=5.0, actions=[pick_place_app])]
+            on_start=[move_group_node, TimerAction(period=5.0, actions=[pick_place_app])]
         )
     )
 
     return LaunchDescription([
-        arg_use_sim_time, arg_x, arg_y, arg_z,
-        gz_sim, bridge, robot_state_publisher, spawn_entity,
+        arg_use_sim_time, arg_x, arg_y, arg_z, arg_pick_pos, arg_place_pos,
+        gz_sim, clock_bridge, service_bridge, robot_state_publisher, spawn_entity,
         delay_broadcaster, delay_jtc, delay_moveit,
     ])

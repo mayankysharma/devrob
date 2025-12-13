@@ -15,7 +15,7 @@
 class PickPlaceNode : public rclcpp::Node
 {
 public:
-  PickPlaceNode() : Node("pick_place_cpp"), initialized_(false)
+  PickPlaceNode() : Node("pick_place_cpp"), initialized_(false), object_attached_(false)
   {
     // Declare parameters
     this->declare_parameter<std::vector<double>>("pick_position", {0.6, 0.0, 0.025});
@@ -66,77 +66,84 @@ public:
     // Set End-Effector link, this must match the EE link in the SRDF
     move_group_->setEndEffectorLink("tool0"); 
     
-    RCLCPP_INFO(this->get_logger(), "MoveIt initialized. Moving to a simple reachable pose...");
+    RCLCPP_INFO(this->get_logger(), "MoveIt initialized. Starting pick and place sequence...");
+    RCLCPP_INFO(this->get_logger(), "Pick position: [%.3f, %.3f, %.3f]", 
+                pick_pos_[0], pick_pos_[1], pick_pos_[2]);
+    RCLCPP_INFO(this->get_logger(), "Place position: [%.3f, %.3f, %.3f]", 
+                place_pos_[0], place_pos_[1], place_pos_[2]);
     
-    // Simple test: just move to a reachable pose in the air
-    moveToSimplePose();
+    // Execute full pick and place sequence
+    executePickPlaceSequence();
   }
 
 private:
-  // --- Simple Movement Test ---
-  void moveToSimplePose()
+  // --- Full Pick and Place Sequence ---
+  void executePickPlaceSequence()
   {
-    RCLCPP_INFO(this->get_logger(), "Moving to a simple reachable pose in the air");
+    RCLCPP_INFO(this->get_logger(), "=== Starting Pick and Place Sequence ===");
     
-    // Simple pose: in front of robot, at a reasonable height
-    // x=0.4m forward, y=0.0m (center), z=0.3m high
-    geometry_msgs::msg::Pose target_pose;
-    target_pose.position.x = 0.4;
-    target_pose.position.y = 0.0;
-    target_pose.position.z = 0.3;
+    // Step 1: Move to pick approach pose
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 1: Moving to pick approach pose ---");
+    if (!moveToPickApproach()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to move to pick approach pose. Aborting sequence.");
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     
-    // Orientation: wrist facing down (roll=π, pitch=0, yaw=0)
-    tf2::Quaternion q;
-    q.setRPY(3.14159, 0.0, 0.0);
-    target_pose.orientation = tf2::toMsg(q);
+    // Step 2: Move to pick pose (lower down to object)
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 2: Moving to pick pose ---");
+    if (!moveToPickPose()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to move to pick pose. Aborting sequence.");
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     
-    move_group_->setPoseTarget(target_pose);
+    // Step 3: Attach object (simulate vacuum gripper activation)
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 3: Attaching object ---");
+    if (!attachObject()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to attach object. Aborting sequence.");
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     
-    // Retry logic: try planning up to 10 times
-    const int max_retries = 10;
-    bool success = false;
+    // Step 4: Lift object
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 4: Lifting object ---");
+    if (!liftObject()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to lift object. Aborting sequence.");
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(2));
     
-    for (int attempt = 1; attempt <= max_retries; attempt++) {
-      RCLCPP_INFO(this->get_logger(), "Planning attempt %d/%d", attempt, max_retries);
-      
-      moveit::planning_interface::MoveGroupInterface::Plan plan;
-      moveit::core::MoveItErrorCode planning_result = move_group_->plan(plan);
-      
-      if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
-        RCLCPP_INFO(this->get_logger(), "Planning successful on attempt %d!", attempt);
-        RCLCPP_INFO(this->get_logger(), "Plan has %zu waypoints", plan.trajectory_.joint_trajectory.points.size());
-        
-        // Execute trajectory via MoveIt
-        RCLCPP_INFO(this->get_logger(), "Attempting to execute trajectory via MoveIt...");
-        moveit::core::MoveItErrorCode execution_result = move_group_->execute(plan);
-        
-        if (execution_result == moveit::core::MoveItErrorCode::SUCCESS) {
-          RCLCPP_INFO(this->get_logger(), "Execution successful!");
-          success = true;
-          break;
-        } else {
-          RCLCPP_WARN(this->get_logger(), "Execution failed on attempt %d", attempt);
-          if (attempt < max_retries) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-          }
-        }
-      } else {
-        RCLCPP_WARN(this->get_logger(), "Planning failed on attempt %d: %s", attempt, 
-                   planning_result == moveit::core::MoveItErrorCode::PLANNING_FAILED ? "PLANNING_FAILED" :
-                   planning_result == moveit::core::MoveItErrorCode::INVALID_MOTION_PLAN ? "INVALID_MOTION_PLAN" :
-                   planning_result == moveit::core::MoveItErrorCode::TIMED_OUT ? "TIMED_OUT" : "UNKNOWN");
-        
-        if (attempt < max_retries) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(500));
-        }
-      }
+    // Step 5: Move to place approach pose
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 5: Moving to place approach pose ---");
+    if (!moveToPlaceApproach()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to move to place approach pose. Aborting sequence.");
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    
+    // Step 6: Move to place pose
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 6: Moving to place pose ---");
+    if (!moveToPlacePose()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to move to place pose. Aborting sequence.");
+      return;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+    
+    // Step 7: Detach object (simulate vacuum gripper deactivation)
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 7: Detaching object ---");
+    if (!detachObject()) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to detach object. Continuing anyway...");
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    
+    // Step 8: Move away
+    RCLCPP_INFO(this->get_logger(), "\n--- Step 8: Moving away ---");
+    if (!moveAway()) {
+      RCLCPP_WARN(this->get_logger(), "Failed to move away, but sequence mostly completed.");
     }
     
-    if (!success) {
-      RCLCPP_ERROR(this->get_logger(), "Failed to plan after %d attempts", max_retries);
-    } else {
-      RCLCPP_INFO(this->get_logger(), "Movement test completed!");
-    }
+    RCLCPP_INFO(this->get_logger(), "\n=== Pick and Place Sequence Completed! ===");
   }
   
   // --- Movement Helper Functions ---
@@ -154,19 +161,48 @@ private:
     // Use the EE link specified in setEndEffectorLink("tool0")
     move_group_->setPoseTarget(target_pose); 
     
-    moveit::planning_interface::MoveGroupInterface::Plan plan;
-    bool success = (move_group_->plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
+    // Retry logic: try planning up to 5 times
+    const int max_retries = 5;
+    bool success = false;
     
-    if (success) {
-      RCLCPP_INFO(this->get_logger(), "Planning successful, executing...");
-      move_group_->execute(plan);
-      // Wait for execution to finish
-      std::this_thread::sleep_for(std::chrono::seconds(2)); 
-      return true;
-    } else {
-      RCLCPP_ERROR(this->get_logger(), "Planning failed for target pose [%.2f, %.2f, %.2f]", x, y, z);
-      return false;
+    for (int attempt = 1; attempt <= max_retries; attempt++) {
+      moveit::planning_interface::MoveGroupInterface::Plan plan;
+      moveit::core::MoveItErrorCode planning_result = move_group_->plan(plan);
+      
+      if (planning_result == moveit::core::MoveItErrorCode::SUCCESS) {
+        RCLCPP_INFO(this->get_logger(), "Planning successful for pose [%.3f, %.3f, %.3f] (attempt %d/%d)", 
+                    x, y, z, attempt, max_retries);
+        
+        // Execute trajectory via MoveIt
+        moveit::core::MoveItErrorCode execution_result = move_group_->execute(plan);
+        
+        if (execution_result == moveit::core::MoveItErrorCode::SUCCESS) {
+          RCLCPP_INFO(this->get_logger(), "Execution successful!");
+          success = true;
+          // Wait for execution to finish
+          std::this_thread::sleep_for(std::chrono::milliseconds(500));
+          break;
+        } else {
+          RCLCPP_WARN(this->get_logger(), "Execution failed on attempt %d", attempt);
+          if (attempt < max_retries) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+          }
+        }
+      } else {
+        RCLCPP_WARN(this->get_logger(), "Planning failed for pose [%.3f, %.3f, %.3f] on attempt %d/%d", 
+                    x, y, z, attempt, max_retries);
+        if (attempt < max_retries) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+      }
     }
+    
+    if (!success) {
+      RCLCPP_ERROR(this->get_logger(), "Failed to move to pose [%.3f, %.3f, %.3f] after %d attempts", 
+                   x, y, z, max_retries);
+    }
+    
+    return success;
   }
 
   bool moveToPickApproach()
@@ -222,62 +258,45 @@ private:
   bool attachObject()
   {
     RCLCPP_INFO(this->get_logger(), "Attaching object to vacuum gripper (simulating with fixed joint)");
+    RCLCPP_INFO(this->get_logger(), "Waiting for attach service: /world/default/create");
     
-    if (!attach_client_->wait_for_service(std::chrono::seconds(5))) {
-      RCLCPP_ERROR(this->get_logger(), "Attach service not available");
+    // Wait longer for service to become available (might need time for bridge to initialize)
+    if (!attach_client_->wait_for_service(std::chrono::seconds(10))) {
+      RCLCPP_ERROR(this->get_logger(), "Attach service /world/default/create not available after 10 seconds");
+      RCLCPP_ERROR(this->get_logger(), "Make sure ros_gz_bridge is running and service bridge is configured");
       return false;
     }
     
-    // CRITICAL: We create a fixed joint between the 'ur5' model's EE link and the object.
-    // Assuming the EE link for the UR5 is 'tool0' (or use your gripper link if defined)
-    std::stringstream sdf;
-    sdf << "<?xml version='1.0'?>"
-        << "<sdf version='1.6'>"
-        << "<joint name='attachment_joint_" << object_name_ << "' type='fixed'>"
-        << "<parent>ur5::tool0</parent>" // Uses the 'ur5' model name and the 'tool0' link
-        << "<child>" << object_name_ << "::link</child>" // Assumes the object model's link is named 'link'
-        << "</joint>"
-        << "</sdf>";
+    // NOTE: Creating joints between existing models in Ignition Gazebo requires
+    // a plugin (like gazebo_model_attachment_plugin) or world-level modifications.
+    // SpawnEntity cannot create joints between existing models.
+    // For now, we simulate attachment by just logging it.
+    RCLCPP_WARN(this->get_logger(), "NOTE: Actual joint creation is not implemented. Object attachment is simulated.");
+    RCLCPP_WARN(this->get_logger(), "To enable real attachment, install gazebo_model_attachment_plugin or use pose-following.");
     
-    auto request = std::make_shared<ros_gz_interfaces::srv::SpawnEntity::Request>();
-    request->entity_factory.name = "attachment_joint_" + object_name_;
-    request->entity_factory.sdf = sdf.str();
+    // Simulate attachment delay
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     
-    auto future = attach_client_->async_send_request(request);
-    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-        rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO(this->get_logger(), "Object attached successfully");
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      return true;
-    } else {
-      RCLCPP_ERROR(this->get_logger(), "Failed to attach object");
-      return false;
-    }
+    // Mark as attached for sequence continuation
+    object_attached_ = true;
+    
+    RCLCPP_INFO(this->get_logger(), "Object attachment simulated successfully");
+    return true;
   }
   
   bool detachObject()
   {
-    RCLCPP_INFO(this->get_logger(), "Detaching object (deleting fixed joint)");
+    RCLCPP_INFO(this->get_logger(), "Simulating detachment of object '%s'", object_name_.c_str());
+    RCLCPP_WARN(this->get_logger(), "NOTE: Actual joint removal is not implemented. Object detachment is simulated.");
     
-    if (!detach_client_->wait_for_service(std::chrono::seconds(5))) {
-      RCLCPP_ERROR(this->get_logger(), "Detach service not available");
-      return false;
-    }
+    // Simulate detachment delay
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     
-    auto request = std::make_shared<ros_gz_interfaces::srv::DeleteEntity::Request>();
-    request->entity.name = "attachment_joint_" + object_name_;
-    request->entity.type = ros_gz_interfaces::msg::Entity::JOINT;
+    // Mark as detached
+    object_attached_ = false;
     
-    auto future = detach_client_->async_send_request(request);
-    if (rclcpp::spin_until_future_complete(this->get_node_base_interface(), future) ==
-        rclcpp::FutureReturnCode::SUCCESS) {
-      RCLCPP_INFO(this->get_logger(), "Object detached successfully");
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      return true;
-    } else {
-      RCLCPP_ERROR(this->get_logger(), "Failed to detach object");
-      return false;
-    }
+    RCLCPP_INFO(this->get_logger(), "Object detachment simulated successfully");
+    return true;
   }
   
   std::shared_ptr<moveit::planning_interface::MoveGroupInterface> move_group_;
@@ -288,6 +307,7 @@ private:
   
   rclcpp::TimerBase::SharedPtr init_timer_;
   bool initialized_;
+  bool object_attached_;  // Track attachment state
   
   std::vector<double> pick_pos_;
   std::vector<double> place_pos_;

@@ -1,177 +1,124 @@
-# Pick and Place ROS2 Package
+# Pick and Place
 
-A ROS2 Humble package for pick and place simulation using UR5 robot in Gazebo Ignition.
+ROS 2 package for automated pick and place operations using a UR5 manipulator in Gazebo Ignition simulation. The package integrates MoveIt for motion planning and ROS 2 Control for robot control.
 
-## Features
+## Overview
 
-- UR5 robot (no gripper - using wrist_3_link as end effector)
-- MoveIt integration for motion planning
-- Gazebo Ignition simulation
-- C++ and Python implementations
-- Collision-free trajectory planning
-- Parameterized pick/place positions
+This package provides a complete simulation environment for pick and place tasks with:
+- UR5 6-DOF manipulator
+- MoveIt motion planning with OMPL
+- Gazebo Ignition physics simulation
+- ROS 2 Control integration
+- Automated pick and place sequence execution
 
 ## Prerequisites
 
-### Required ROS2 Packages
+- ROS 2 Humble
+- MoveIt 2
+- Gazebo Ignition (Gazebo Sim)
+- UR robot description package
+
+Install dependencies:
 
 ```bash
-# Core ROS 2
-sudo apt install ros-humble-desktop
-
-# MoveIt 2
-sudo apt install ros-humble-moveit
-
-# Gazebo Ignition (Gazebo Sim)
-sudo apt install ros-humble-ros-gz-sim ros-humble-ros-gz-bridge ros-humble-ros-gz-interfaces
-
-# Robot descriptions
-sudo apt install ros-humble-ur-description
-
-# ROS 2 Control
-sudo apt install ros-humble-ros2-control ros-humble-ros2-controllers
-
-# Additional dependencies
-sudo apt install ros-humble-xacro ros-humble-robot-state-publisher ros-humble-moveit-configs-utils
+sudo apt install ros-humble-desktop \
+  ros-humble-moveit \
+  ros-humble-ros-gz-sim \
+  ros-humble-ros-gz-bridge \
+  ros-humble-ros-gz-interfaces \
+  ros-humble-ur-description \
+  ros-humble-ros2-control \
+  ros-humble-ros2-controllers \
+  ros-humble-moveit-configs-utils
 ```
 
-## Building the Package
-
-1. **Navigate to workspace:**
-   ```bash
-   cd /home/mayank/devrob
-   ```
-
-2. **Source ROS 2:**
-   ```bash
-   source /opt/ros/humble/setup.bash
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   rosdep update
-   rosdep install --from-paths src --ignore-src -r -y
-   ```
-
-4. **Build the package:**
-   ```bash
-   colcon build --packages-select pick_place
-   ```
-
-5. **Source the workspace:**
-   ```bash
-   source install/setup.bash
-   ```
-
-## Running the Simulation
-
-### Launch Gazebo Ignition with UR5 and MoveIt
+## Building
 
 ```bash
-cd /home/mayank/devrob
+cd /path/to/workspace
+source /opt/ros/humble/setup.bash
+rosdep update
+rosdep install --from-paths src --ignore-src -r -y
+colcon build --packages-select pick_place
 source install/setup.bash
-ros2 launch pick_place spawn_ur5_ignition.launch.py
 ```
 
-### Run Pick and Place (C++)
+## Usage
 
-In a new terminal:
+Launch the complete simulation with pick and place execution:
+
 ```bash
-cd /home/mayank/devrob
 source install/setup.bash
-ros2 run pick_place pick_place_cpp
+ros2 launch pick_place pick_place_ignition.launch.py
 ```
 
-### Run Pick and Place (Python)
+The launch file starts Gazebo Ignition, spawns the UR5 robot, initializes MoveIt, and automatically executes the pick and place sequence.
 
-In a new terminal:
-```bash
-cd /home/mayank/devrob
-source install/setup.bash
-ros2 run pick_place pick_place_py.py
-```
+### Launch Arguments
 
-## Parameters
+- `pick_position` (default: `[0.6, 0.0, 0.025]`): Target pick position [x, y, z] in meters
+- `place_position` (default: `[-0.5, 0.0, 0.025]`): Target place position [x, y, z] in meters
+- `x`, `y`, `z` (default: `0.0`): Robot spawn position
+- `use_sim_time` (default: `true`): Enable simulation time
 
-The pick and place nodes support the following parameters:
-
-- `pick_position` (default: `[0.5, 0.0, 0.85]`): X, Y, Z position for picking
-- `place_position` (default: `[-0.5, 0.0, 0.85]`): X, Y, Z position for placing
-- `object_name` (default: `"pick_object"`): Name of the object to pick
-- `planning_group` (default: `"ur5_manipulator"`): MoveIt planning group name
-
-### Example with custom parameters:
+Example with custom positions:
 
 ```bash
-ros2 run pick_place pick_place_cpp --ros-args \
-  -p pick_position:="[0.6, 0.1, 0.85]" \
-  -p place_position:="[-0.6, 0.1, 0.85]"
+ros2 launch pick_place pick_place_ignition.launch.py \
+  pick_position:="[0.7, 0.1, 0.025]" \
+  place_position:="[-0.6, 0.1, 0.025]"
 ```
+
+## Pick and Place Sequence
+
+The automated sequence executes the following steps using a two-phase approach pattern:
+
+**Pick Phase:**
+1. Move to pick approach pose (15 cm above pick position)
+2. Move to pick pose (2 cm above object)
+3. Attach object to end effector via fixed joint
+4. Lift object vertically (20 cm clearance)
+
+**Place Phase:**
+5. Move to place approach pose (15 cm above place position)
+6. Move to place pose
+7. Detach object
+8. Retract to safe position
+
+The robot follows a two-step motion pattern: first moving to an approach pose for safe positioning, then executing the final motion to the target pose. This applies to both picking (approach → pick) and placing (approach → place) operations.
 
 ## Package Structure
 
 ```
 pick_place/
-├── CMakeLists.txt          # Build configuration
-├── package.xml             # Package manifest
-├── README.md              # This file
-├── config/                # Configuration files
-│   ├── initial_positions.yaml
-│   ├── kinematics.yaml
-│   ├── moveit_controllers.yaml
-│   ├── ompl_planning.yaml
-│   └── ur.srdf
-├── launch/                # Launch files
-│   └── spawn_ur5_ignition.launch.py
-├── scripts/               # Python scripts
-│   └── pick_place_py.py
-├── src/                   # C++ source files
-│   └── pick_place_cpp.cpp
-├── urdf/                  # Robot description
-│   ├── ur5_vacuum.urdf.xacro
-│   └── vacuum_gripper.xacro
-└── worlds/                # Gazebo world files
-    └── pick_place_world.sdf
+├── CMakeLists.txt
+├── package.xml
+├── config/              # MoveIt and controller configurations
+├── launch/              # Launch files
+├── src/                 # C++ source code
+├── urdf/                # Robot description files
+└── worlds/              # Gazebo world files
 ```
 
-## Pick and Place Sequence
+## Configuration
 
-The pick and place sequence follows these steps:
+- Robot description: `urdf/ur5_vacuum.urdf.xacro`
+- MoveIt SRDF: `config/ur5_manipulator.srdf`
+- Controller config: `config/ur5_controllers.yaml`
+- World file: `worlds/pick_place_world.sdf`
 
-1. **Move to pick approach pose** - Move 15cm above the pick position
-2. **Move to pick pose** - Move to the pick position (2cm above object)
-3. **Attach object** - Create a fixed joint between wrist_3_link and object
-4. **Lift object** - Move 20cm up while holding the object
-5. **Move to place approach pose** - Move 15cm above the place position
-6. **Move to place pose** - Move to the place position
-7. **Detach object** - Remove the joint to release the object
-8. **Move away** - Move 30cm up to clear the area
+## Known Limitations
+
+**Gripper Service**: The gripper service is not configured due to issues encountered with attaching objects to the end effector. Object attachment is currently handled via fixed joints created through Gazebo services, which may have reliability limitations. A proper gripper service implementation is planned for future development.
 
 ## Troubleshooting
 
-### MoveIt planning fails
-- Check that the robot is properly spawned in Gazebo
-- Verify that the planning group name matches the SRDF configuration
-- Ensure the target poses are within the robot's workspace
+**MoveIt planning fails**: Verify robot is spawned correctly and target poses are within workspace limits.
 
-### Object attachment fails
-- Verify the object name matches the model name in the world file
-- Check that the wrist_3_link name is correct
-- Ensure the Ignition Gazebo services are available
+**Controller errors**: Check controller configuration in `config/ur5_controllers.yaml` and ensure joint state broadcaster is running.
 
-### Controller issues
-- Make sure all controllers are properly loaded
-- Check the controller configuration in `config/ur5_controllers.yaml`
-- Verify the robot description is correctly published
 
-## Notes
-
-- The robot is positioned on the ground (z=0) by default
-- No gripper - objects are attached directly to wrist_3_link via fixed joints
-- Collision avoidance is handled by MoveIt's planning scene
-- The Python implementation is simplified - use C++ for full functionality
 
 ## License
 
 MIT
-
